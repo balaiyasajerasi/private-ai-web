@@ -1,5 +1,5 @@
 /* ==============================
-   AUDIO
+   AUDIO ENGINE
 ============================== */
 const SFX = (() => {
   let ctx = null;
@@ -10,7 +10,7 @@ const SFX = (() => {
     return ctx;
   }
 
-  function beep(freq, vol, dur, endFreq) {
+  function tone(freq, vol, dur, toFreq) {
     if (!enabled) return;
     try {
       const c = ac();
@@ -19,7 +19,7 @@ const SFX = (() => {
       o.connect(g); g.connect(c.destination);
       o.type = 'sine';
       o.frequency.setValueAtTime(freq, c.currentTime);
-      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, c.currentTime + dur);
+      if (toFreq) o.frequency.exponentialRampToValueAtTime(toFreq, c.currentTime + dur);
       g.gain.setValueAtTime(vol, c.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
       o.start(); o.stop(c.currentTime + dur + 0.01);
@@ -27,13 +27,13 @@ const SFX = (() => {
   }
 
   return {
-    hover()    { beep(880, 0.03, 0.06, 1020); },
-    open()     { beep(1050, 0.06, 0.14, 580); },
-    shortcut() { beep(660, 0.08, 0.09, 880); },
-    toggleOn()  { beep(420, 0.05, 0.09); setTimeout(() => beep(630, 0.05, 0.09), 95); },
-    toggleOff() { beep(630, 0.05, 0.09); setTimeout(() => beep(420, 0.05, 0.09), 95); },
-    get on() { return enabled; },
-    set(v)   { enabled = !!v; }
+    hover()     { tone(900,  0.028, 0.065, 1060); },
+    open()      { tone(1080, 0.06,  0.13,  560); },
+    shortcut()  { tone(680,  0.07,  0.09,  920); },
+    toggleOn()  { tone(430, 0.05, 0.09); setTimeout(() => tone(650, 0.05, 0.09), 90); },
+    toggleOff() { tone(650, 0.05, 0.09); setTimeout(() => tone(430, 0.05, 0.09), 90); },
+    get on()    { return enabled; },
+    set(v)      { enabled = !!v; }
   };
 })();
 
@@ -78,17 +78,16 @@ function buildList(ais) {
   const list = document.getElementById('aiList');
   list.innerHTML = '';
 
-  // Validasi: pastiin shortcut unik semua
+  // Cek duplikat shortcut
   const seen = {};
   ais.forEach(ai => {
     const k = (ai.shortcut || '').toUpperCase();
-    if (k) {
-      if (seen[k]) {
-        console.warn(`[AI Hub] Shortcut '${k}' duplikat di '${ai.name}' dan '${seen[k]}' — shortcut dinonaktifkan untuk '${ai.name}'`);
-        ai._shortcutDisabled = true;
-      } else {
-        seen[k] = ai.name;
-      }
+    if (!k) return;
+    if (seen[k]) {
+      console.warn(`[AI Hub] Shortcut '${k}' duplikat: '${ai.name}' vs '${seen[k]}' — dinonaktifkan untuk '${ai.name}'`);
+      ai._noShortcut = true;
+    } else {
+      seen[k] = ai.name;
     }
   });
 
@@ -99,11 +98,13 @@ function buildList(ais) {
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.dataset.id = ai.id;
-    a.style.setProperty('--row-accent', ai.accent || '#888');
-    a.style.animationDelay = `${i * 0.055}s`;
+    a.style.setProperty('--row-accent', ai.accent || '#888888');
+    a.style.animationDelay = `${i * 0.06}s`;
 
-    const kbd = ai.shortcut && !ai._shortcutDisabled
+    const kbdHtml = (ai.shortcut && !ai._noShortcut)
       ? `<span class="row-kbd">${ai.shortcut.toUpperCase()}</span>` : '';
+    const tagHtml = ai.tag
+      ? `<span class="row-tag">${ai.tag}</span>` : '';
 
     a.innerHTML = `
       <div class="row-icon">
@@ -118,19 +119,19 @@ function buildList(ais) {
         <div class="row-desc">${ai.description || ''}</div>
       </div>
       <div class="row-right">
-        ${kbd}
-        ${ai.tag ? `<span class="row-tag">${ai.tag}</span>` : ''}
+        ${kbdHtml}
+        ${tagHtml}
       </div>
     `;
 
-    // hover sfx
-    let lastHover = 0;
+    // Hover SFX (throttled)
+    let lastHov = 0;
     a.addEventListener('mouseenter', () => {
       const now = Date.now();
-      if (now - lastHover > 120) { SFX.hover(); lastHover = now; }
+      if (now - lastHov > 130) { SFX.hover(); lastHov = now; }
     });
 
-    // click sfx
+    // Click SFX
     a.addEventListener('click', () => {
       SFX.open();
       toast(`Membuka ${ai.name}…`);
@@ -139,34 +140,32 @@ function buildList(ais) {
     list.appendChild(a);
   });
 
-  // Register keyboard shortcuts
-  const shortcutMap = {};
+  // Keyboard shortcuts
+  const map = {};
   ais.forEach(ai => {
     const k = (ai.shortcut || '').toUpperCase();
-    if (k && !ai._shortcutDisabled) shortcutMap[k] = ai;
+    if (k && !ai._noShortcut) map[k] = ai;
   });
 
   document.addEventListener('keydown', e => {
-    // Abaikan kalau lagi di input field
     const tag = document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     const key = e.key.toUpperCase();
-    if (!shortcutMap[key]) return;
-
+    if (!map[key]) return;
     e.preventDefault();
-    const ai = shortcutMap[key];
 
-    // Flash visual
+    const ai = map[key];
     const row = document.querySelector(`.ai-row[data-id="${ai.id}"]`);
     if (row) {
       row.classList.add('flash');
-      setTimeout(() => row.classList.remove('flash'), 350);
+      setTimeout(() => row.classList.remove('flash'), 380);
     }
 
     SFX.shortcut();
-    toast(`Membuka ${ai.name}… (${key})`);
-    setTimeout(() => window.open(ai.url, '_blank', 'noopener,noreferrer'), 120);
+    toast(`Membuka ${ai.name}… [${key}]`);
+    setTimeout(() => window.open(ai.url, '_blank', 'noopener,noreferrer'), 130);
   });
 }
 
@@ -174,22 +173,17 @@ function buildList(ais) {
    INIT
 ============================== */
 fetch('config.json')
-  .then(r => {
-    if (!r.ok) throw new Error('fetch fail');
-    return r.json();
-  })
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
   .then(cfg => {
     const app = cfg.app || {};
     document.title = app.title || 'AI Hub';
-    const el = document.getElementById('siteTitle');
-    if (el) el.textContent = app.title || 'AI Hub';
-    document.getElementById('btnSound').parentElement;
+    const titleEl = document.getElementById('siteTitle');
+    if (titleEl) titleEl.textContent = app.title || 'AI Hub';
 
     initSoundBtn(app.sound !== false);
     buildList(cfg.ais || []);
   })
-  .catch(err => {
-    console.error(err);
+  .catch(() => {
     document.getElementById('aiList').innerHTML =
-      '<p style="color:#999;padding:32px 0;font-size:0.85rem">Gagal load config.json.</p>';
+      '<p style="color:#aeaeb2;padding:32px 0;font-size:0.9rem">Gagal load config.json.</p>';
   });
