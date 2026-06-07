@@ -1,170 +1,195 @@
-// ===== AUDIO ENGINE =====
-const Audio = (() => {
+/* ==============================
+   AUDIO
+============================== */
+const SFX = (() => {
   let ctx = null;
   let enabled = true;
 
-  function getCtx() {
+  function ac() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     return ctx;
   }
 
-  function play(type, ...args) {
+  function beep(freq, vol, dur, endFreq) {
     if (!enabled) return;
-    try { sounds[type](...args); } catch(e) {}
+    try {
+      const c = ac();
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, c.currentTime);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, c.currentTime + dur);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.start(); o.stop(c.currentTime + dur + 0.01);
+    } catch (_) {}
   }
 
-  const sounds = {
-    hover() {
-      const c = getCtx();
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sine';
-      o.frequency.setValueAtTime(880, c.currentTime);
-      o.frequency.exponentialRampToValueAtTime(1100, c.currentTime + 0.06);
-      g.gain.setValueAtTime(0.04, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08);
-      o.start(); o.stop(c.currentTime + 0.08);
-    },
-    click() {
-      const c = getCtx();
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sine';
-      o.frequency.setValueAtTime(1200, c.currentTime);
-      o.frequency.exponentialRampToValueAtTime(600, c.currentTime + 0.12);
-      g.gain.setValueAtTime(0.08, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.14);
-      o.start(); o.stop(c.currentTime + 0.14);
-    },
-    toggle(on) {
-      const c = getCtx();
-      const freqs = on ? [440, 660] : [660, 440];
-      freqs.forEach((f, i) => {
-        const o = c.createOscillator();
-        const g = c.createGain();
-        o.connect(g); g.connect(c.destination);
-        o.type = 'sine';
-        o.frequency.value = f;
-        const t = c.currentTime + i * 0.08;
-        g.gain.setValueAtTime(0.06, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-        o.start(t); o.stop(t + 0.1);
-      });
-    }
+  return {
+    hover()    { beep(880, 0.03, 0.06, 1020); },
+    open()     { beep(1050, 0.06, 0.14, 580); },
+    shortcut() { beep(660, 0.08, 0.09, 880); },
+    toggleOn()  { beep(420, 0.05, 0.09); setTimeout(() => beep(630, 0.05, 0.09), 95); },
+    toggleOff() { beep(630, 0.05, 0.09); setTimeout(() => beep(420, 0.05, 0.09), 95); },
+    get on() { return enabled; },
+    set(v)   { enabled = !!v; }
   };
-
-  return { play, get enabled() { return enabled; }, setEnabled(v) { enabled = v; } };
 })();
 
-// ===== TOAST =====
-function showToast(msg, duration = 2000) {
+/* ==============================
+   TOAST
+============================== */
+let _tt;
+function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), duration);
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 2000);
 }
 
-// ===== SOUND BTN =====
-function initSoundBtn(soundEnabled) {
-  const btn = document.getElementById('soundBtn');
-  const icon = document.getElementById('soundIcon');
+/* ==============================
+   SOUND BUTTON
+============================== */
+function initSoundBtn(defaultOn) {
+  SFX.set(defaultOn);
+  const btn = document.getElementById('btnSound');
 
-  const iconOn = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>`;
-  const iconOff = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
-
-  function updateIcon() {
-    icon.innerHTML = Audio.enabled ? iconOn : iconOff;
-    btn.title = Audio.enabled ? 'Sound On' : 'Sound Off';
-    btn.style.color = Audio.enabled ? '' : 'rgba(240,240,240,0.3)';
+  function sync() {
+    btn.textContent = SFX.on ? '♪' : '♩';
+    btn.classList.toggle('muted', !SFX.on);
+    btn.title = SFX.on ? 'Sound on' : 'Sound off';
   }
-
-  Audio.setEnabled(soundEnabled);
-  updateIcon();
+  sync();
 
   btn.addEventListener('click', () => {
-    Audio.setEnabled(!Audio.enabled);
-    Audio.play('toggle', Audio.enabled);
-    updateIcon();
-    showToast(Audio.enabled ? '🔊 Sound on' : '🔇 Sound off');
+    SFX.set(!SFX.on);
+    SFX.on ? SFX.toggleOn() : SFX.toggleOff();
+    sync();
+    toast(SFX.on ? '🔊 Sound on' : '🔇 Sound off');
   });
 }
 
-// ===== RENDER CARDS =====
-function renderCards(ais) {
-  const grid = document.getElementById('aiGrid');
-  grid.innerHTML = '';
+/* ==============================
+   BUILD LIST
+============================== */
+function buildList(ais) {
+  const list = document.getElementById('aiList');
+  list.innerHTML = '';
+
+  // Validasi: pastiin shortcut unik semua
+  const seen = {};
+  ais.forEach(ai => {
+    const k = (ai.shortcut || '').toUpperCase();
+    if (k) {
+      if (seen[k]) {
+        console.warn(`[AI Hub] Shortcut '${k}' duplikat di '${ai.name}' dan '${seen[k]}' — shortcut dinonaktifkan untuk '${ai.name}'`);
+        ai._shortcutDisabled = true;
+      } else {
+        seen[k] = ai.name;
+      }
+    }
+  });
 
   ais.forEach((ai, i) => {
     const a = document.createElement('a');
-    a.className = 'ai-card';
+    a.className = 'ai-row';
     a.href = ai.url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.style.setProperty('--card-accent', ai.accent || '#fff');
-    a.style.animationDelay = `${i * 0.07}s`;
+    a.dataset.id = ai.id;
+    a.style.setProperty('--row-accent', ai.accent || '#888');
+    a.style.animationDelay = `${i * 0.055}s`;
+
+    const kbd = ai.shortcut && !ai._shortcutDisabled
+      ? `<span class="row-kbd">${ai.shortcut.toUpperCase()}</span>` : '';
 
     a.innerHTML = `
-      <div class="card-top">
-        <div class="card-img-wrap">
-          <img src="${ai.image}" alt="${ai.name}" loading="lazy" onerror="this.style.display='none'"/>
-        </div>
-        <div class="card-info">
-          <div class="card-name">${ai.name}</div>
-          <div class="card-maker">${ai.maker}</div>
-        </div>
+      <div class="row-icon">
+        <img src="${ai.image}" alt="${ai.name}" loading="lazy"
+             onerror="this.style.visibility='hidden'" />
       </div>
-      <div class="card-desc">${ai.description}</div>
-      <div class="card-footer">
-        <span class="card-link-label">Buka AI</span>
-        <span class="card-arrow">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
-          </svg>
-        </span>
+      <div class="row-body">
+        <div class="row-name-line">
+          <span class="row-name">${ai.name}</span>
+          <span class="row-maker">${ai.maker}</span>
+        </div>
+        <div class="row-desc">${ai.description || ''}</div>
       </div>
-      <div class="accent-bar"></div>
+      <div class="row-right">
+        ${kbd}
+        ${ai.tag ? `<span class="row-tag">${ai.tag}</span>` : ''}
+      </div>
     `;
 
-    // hover sound (throttled)
+    // hover sfx
     let lastHover = 0;
     a.addEventListener('mouseenter', () => {
       const now = Date.now();
-      if (now - lastHover > 120) { Audio.play('hover'); lastHover = now; }
+      if (now - lastHover > 120) { SFX.hover(); lastHover = now; }
     });
 
-    a.addEventListener('click', (e) => {
-      Audio.play('click');
-      showToast(`Membuka ${ai.name}…`);
+    // click sfx
+    a.addEventListener('click', () => {
+      SFX.open();
+      toast(`Membuka ${ai.name}…`);
     });
 
-    grid.appendChild(a);
+    list.appendChild(a);
+  });
+
+  // Register keyboard shortcuts
+  const shortcutMap = {};
+  ais.forEach(ai => {
+    const k = (ai.shortcut || '').toUpperCase();
+    if (k && !ai._shortcutDisabled) shortcutMap[k] = ai;
+  });
+
+  document.addEventListener('keydown', e => {
+    // Abaikan kalau lagi di input field
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+
+    const key = e.key.toUpperCase();
+    if (!shortcutMap[key]) return;
+
+    e.preventDefault();
+    const ai = shortcutMap[key];
+
+    // Flash visual
+    const row = document.querySelector(`.ai-row[data-id="${ai.id}"]`);
+    if (row) {
+      row.classList.add('flash');
+      setTimeout(() => row.classList.remove('flash'), 350);
+    }
+
+    SFX.shortcut();
+    toast(`Membuka ${ai.name}… (${key})`);
+    setTimeout(() => window.open(ai.url, '_blank', 'noopener,noreferrer'), 120);
   });
 }
 
-// ===== INIT =====
+/* ==============================
+   INIT
+============================== */
 fetch('config.json')
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error('fetch fail');
+    return r.json();
+  })
   .then(cfg => {
     const app = cfg.app || {};
-    const ais = cfg.ais || [];
-
-    // meta
-    document.title = app.title || "AI Hub";
-    document.getElementById('appTitle').textContent = app.title || 'AI Hub';
-    document.getElementById('heroTitle').innerHTML =
-      `${app.owner || 'My'}'s<br/><em>AI Hub</em>`;
-    document.getElementById('heroSub').textContent = app.subtitle || 'Portal pribadi ke semua AI';
-    document.getElementById('ownerTag').textContent = `— ${app.owner || 'Andra'}`;
-    document.getElementById('year').textContent = new Date().getFullYear();
+    document.title = app.title || 'AI Hub';
+    const el = document.getElementById('siteTitle');
+    if (el) el.textContent = app.title || 'AI Hub';
+    document.getElementById('btnSound').parentElement;
 
     initSoundBtn(app.sound !== false);
-    renderCards(ais);
+    buildList(cfg.ais || []);
   })
   .catch(err => {
-    console.error('Gagal load config.json:', err);
-    document.getElementById('aiGrid').innerHTML =
-      '<p style="color:rgba(255,255,255,0.3);padding:40px;grid-column:1/-1">Gagal memuat config.json.</p>';
+    console.error(err);
+    document.getElementById('aiList').innerHTML =
+      '<p style="color:#999;padding:32px 0;font-size:0.85rem">Gagal load config.json.</p>';
   });
