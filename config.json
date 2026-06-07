@@ -1,0 +1,65 @@
+{
+  "app": {
+    "title": "Andra's AI Hub",
+    "subtitle": "Portal pribadi ke semua AI",
+    "owner": "Andra",
+    "sound": true,
+    "theme": "dark"
+  },
+  "ais": [
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "maker": "OpenAI",
+      "url": "https://chat.openai.com",
+      "image": "images/chatgpt.png",
+      "accent": "#10a37f",
+      "description": "Serba bisa, cocok buat nulis & ngobrol"
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "maker": "Anthropic",
+      "url": "https://claude.ai",
+      "image": "images/claude.png",
+      "accent": "#cc785c",
+      "description": "Reasoning tajam, paling enak diajak mikir"
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "maker": "Google",
+      "url": "https://gemini.google.com",
+      "image": "images/gemini.png",
+      "accent": "#4285f4",
+      "description": "Kuat di search & integrasi Google"
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "maker": "DeepSeek AI",
+      "url": "https://chat.deepseek.com",
+      "image": "images/deepseek.png",
+      "accent": "#4d6bfe",
+      "description": "Open source, kenceng buat coding"
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "maker": "xAI",
+      "url": "https://grok.com",
+      "image": "images/grok.png",
+      "accent": "#ff4444",
+      "description": "Jujur, suka roasting, real-time X"
+    },
+    {
+      "id": "meta",
+      "name": "Meta AI",
+      "maker": "Meta",
+      "url": "https://www.meta.ai",
+      "image": "images/meta.png",
+      "accent": "#0082fb",
+      "description": "Terintegrasi dengan WhatsApp & Instagram"
+    }
+  ]
+}
