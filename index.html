@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Andra's AI Hub</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="noise"></div>
+  <div class="grid-bg"></div>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-area">
+        <span class="logo-dot"></span>
+        <span class="logo-text" id="appTitle">AI Hub</span>
+      </div>
+      <div class="header-right">
+        <span class="owner-tag" id="ownerTag">— Andra</span>
+        <button class="sound-btn" id="soundBtn" title="Toggle Sound">
+          <svg id="soundIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="hero-sub" id="heroSub">Portal pribadi ke semua AI</p>
+      <h1 class="hero-title" id="heroTitle">Andra's<br/><em>AI Hub</em></h1>
+    </section>
+
+    <section class="grid-section">
+      <div class="ai-grid" id="aiGrid">
+        <!-- Cards injected by JS -->
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Made for Andra only · <span id="year"></span></span>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
